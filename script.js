@@ -1,6 +1,28 @@
+```javascript
 /* =================================
    COLLEGECLEAN - JAVASCRIPT
    ================================= */
+
+
+/* ================================
+   SUPABASE CONFIGURATION
+   ================================ */
+
+const SUPABASE_URL = "https://hsogckpvahxfyphhakgv.supabase.co";
+
+/*
+   IMPORTANT:
+   Replace this with your Supabase
+   Publishable/Anon Key.
+   
+   DO NOT use the secret/service_role key.
+*/
+const SUPABASE_KEY = "sb_publishable_UlWZ1m_ybYovovYjZGsbaw_XGO1zosU";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
 
 
 /* ================================
@@ -68,49 +90,59 @@ const startCounter = (counter) => {
     counter.textContent = current;
 
     requestAnimationFrame(updateCounter);
+
   };
 
   updateCounter();
+
 };
 
 
-const counterObserver = new IntersectionObserver(
-  (entries, observer) => {
+if ("IntersectionObserver" in window) {
 
-    entries.forEach((entry) => {
+  const counterObserver = new IntersectionObserver(
+    (entries, observer) => {
 
-      if (entry.isIntersecting) {
+      entries.forEach((entry) => {
 
-        startCounter(entry.target);
+        if (entry.isIntersecting) {
 
-        observer.unobserve(entry.target);
-      }
+          startCounter(entry.target);
 
-    });
+          observer.unobserve(entry.target);
 
-  },
-  {
-    threshold: 0.5
-  }
-);
+        }
+
+      });
+
+    },
+    {
+      threshold: 0.5
+    }
+  );
 
 
-counters.forEach((counter) => {
-  counterObserver.observe(counter);
-});
+  counters.forEach((counter) => {
+    counterObserver.observe(counter);
+  });
+
+}
 
 
 /* ================================
    4. CURRENT NAVIGATION
    ================================ */
 
-const currentPage = window.location.pathname.split("/").pop();
+const currentPage =
+  window.location.pathname.split("/").pop();
 
-const navLinks = document.querySelectorAll(".navbar a");
+const navLinks =
+  document.querySelectorAll(".navbar a");
 
 navLinks.forEach((link) => {
 
-  const linkPage = link.getAttribute("href");
+  const linkPage =
+    link.getAttribute("href");
 
   if (linkPage === currentPage) {
     link.classList.add("active");
@@ -134,7 +166,9 @@ buttons.forEach((button) => {
     button.classList.add("clicked");
 
     setTimeout(() => {
+
       button.classList.remove("clicked");
+
     }, 200);
 
   });
@@ -146,7 +180,8 @@ buttons.forEach((button) => {
    6. SAVE LAST VISIT
    ================================ */
 
-const lastVisit = localStorage.getItem("collegeCleanLastVisit");
+const lastVisit =
+  localStorage.getItem("collegeCleanLastVisit");
 
 if (!lastVisit) {
 
@@ -168,22 +203,29 @@ localStorage.setItem(
    7. REPORT COUNTER
    ================================ */
 
-let reports = Number(
-  localStorage.getItem("collegeCleanReports")
-) || 25;
+/*
+   Default values used for the
+   homepage statistics.
 
-let resolved = Number(
-  localStorage.getItem("collegeCleanResolved")
-) || 18;
+   The actual submitted reports
+   are stored in Supabase.
+*/
 
+let reportsCount =
+  Number(localStorage.getItem("collegeCleanReports")) || 25;
 
-const remaining = reports - resolved;
+let resolved =
+  Number(localStorage.getItem("collegeCleanResolved")) || 18;
 
-const statValues = document.querySelectorAll(".stat strong");
+const remaining =
+  reportsCount - resolved;
+
+const statValues =
+  document.querySelectorAll(".stat strong");
 
 if (statValues.length >= 3) {
 
-  statValues[0].textContent = reports;
+  statValues[0].textContent = reportsCount;
   statValues[1].textContent = resolved;
   statValues[2].textContent = remaining;
 
@@ -203,281 +245,538 @@ setTimeout(() => {
 }, 1000);
 
 
-
 /* ================================
-   REPORT FORM
+   9. REPORT FORM
    ================================ */
 
-const reportForm = document.getElementById("reportForm");
+const reportForm =
+  document.getElementById("reportForm");
+
 
 if (reportForm) {
 
-  reportForm.addEventListener("submit", (event) => {
+  reportForm.addEventListener(
+    "submit",
+    async (event) => {
 
-    event.preventDefault();
-
-
-    const name = document.getElementById("reporterName").value;
-    const category = document.getElementById("category").value;
-    const location = document.getElementById("location").value;
-    const description = document.getElementById("description").value;
+      event.preventDefault();
 
 
-    const newReport = {
+      /* Get form values */
 
-      id: Date.now(),
+      const name =
+        document
+          .getElementById("reporterName")
+          .value
+          .trim();
 
-      name: name,
+      const category =
+        document
+          .getElementById("category")
+          .value;
 
-      category: category,
+      const location =
+        document
+          .getElementById("location")
+          .value
+          .trim();
 
-      location: location,
+      const description =
+        document
+          .getElementById("description")
+          .value
+          .trim();
 
-      description: description,
-
-      status: "Pending",
-
-      date: new Date().toLocaleString()
-
-    };
-
-
-    /* Get existing reports */
-
-    const reports =
-      JSON.parse(localStorage.getItem("collegeCleanReportsList")) || [];
-
-
-    /* Add new report */
-
-    reports.push(newReport);
-
-
-    /* Save reports */
-
-    localStorage.setItem(
-      "collegeCleanReportsList",
-      JSON.stringify(reports)
-    );
+      const photoInput =
+        document.getElementById("photo");
 
 
-    /* Update total */
+      /* Disable button while submitting */
 
-    let totalReports =
-      Number(localStorage.getItem("collegeCleanReports")) || 25;
+      const submitButton =
+        reportForm.querySelector(
+          'button[type="submit"]'
+        );
 
-    totalReports++;
+      if (submitButton) {
 
-    localStorage.setItem(
-      "collegeCleanReports",
-      totalReports
-    );
+        submitButton.disabled = true;
+        submitButton.textContent = "SUBMITTING...";
 
-
-    alert("🌿 Report submitted successfully!");
+      }
 
 
-    reportForm.reset();
+      try {
 
-  });
+        let photoURL = null;
+
+
+        /* ================================
+           UPLOAD PHOTO
+           ================================ */
+
+        if (
+          photoInput &&
+          photoInput.files.length > 0
+        ) {
+
+          const file =
+            photoInput.files[0];
+
+
+          /*
+             Create a unique file name.
+          */
+
+          const fileExtension =
+            file.name.includes(".")
+              ? file.name.substring(
+                  file.name.lastIndexOf(".")
+                )
+              : "";
+
+          const fileName =
+            Date.now() +
+            "-" +
+            Math.random()
+              .toString(36)
+              .substring(2, 8) +
+            fileExtension;
+
+
+          const {
+            error: uploadError
+          } =
+            await supabaseClient.storage
+              .from("report-photos")
+              .upload(
+                fileName,
+                file,
+                {
+                  contentType: file.type,
+                  upsert: false
+                }
+              );
+
+
+          if (uploadError) {
+
+            throw uploadError;
+
+          }
+
+
+          /*
+             Get public URL of uploaded photo.
+          */
+
+          const {
+            data: publicURLData
+          } =
+            supabaseClient.storage
+              .from("report-photos")
+              .getPublicUrl(fileName);
+
+
+          photoURL =
+            publicURLData.publicUrl;
+
+        }
+
+
+        /* ================================
+           SAVE REPORT TO SUPABASE
+           ================================ */
+
+        const {
+          error
+        } =
+          await supabaseClient
+            .from("reports")
+            .insert([
+              {
+                reporter_name: name,
+                category: category,
+                location: location,
+                description: description,
+                photo_url: photoURL
+              }
+            ]);
+
+
+        if (error) {
+
+          throw error;
+
+        }
+
+
+        /* ================================
+           SUCCESS
+           ================================ */
+
+        alert(
+          "🌿 Report submitted successfully!"
+        );
+
+
+        reportForm.reset();
+
+
+        /*
+           Go to reports page after
+           successful submission.
+        */
+
+        window.location.href =
+          "reports.html";
+
+
+      } catch (error) {
+
+        console.error(
+          "Report submission error:",
+          error
+        );
+
+
+        alert(
+          "❌ Failed to submit report.\n\n" +
+          "Please try again."
+        );
+
+
+        /*
+           Re-enable button
+        */
+
+        if (submitButton) {
+
+          submitButton.disabled = false;
+
+          submitButton.textContent =
+            "SUBMIT REPORT";
+
+        }
+
+      }
+
+    }
+  );
 
 }
 
+
 /* ================================
-   FEEDBACK FORM
+   10. FEEDBACK FORM
    ================================ */
 
-const feedbackForm = document.getElementById("feedbackForm");
+const feedbackForm =
+  document.getElementById("feedbackForm");
+
 
 if (feedbackForm) {
 
-  feedbackForm.addEventListener("submit", (event) => {
+  feedbackForm.addEventListener(
+    "submit",
+    (event) => {
 
-    event.preventDefault();
-
-
-    const name =
-      document.getElementById("feedbackName").value;
-
-    const rating =
-      document.getElementById("rating").value;
-
-    const message =
-      document.getElementById("feedbackMessage").value;
+      event.preventDefault();
 
 
-    const feedback = {
+      const name =
+        document
+          .getElementById("feedbackName")
+          .value;
 
-      id: Date.now(),
+      const rating =
+        document
+          .getElementById("rating")
+          .value;
 
-      name: name,
-
-      rating: rating,
-
-      message: message,
-
-      date: new Date().toLocaleString()
-
-    };
-
-
-    const feedbackList =
-      JSON.parse(
-        localStorage.getItem("collegeCleanFeedback")
-      ) || [];
+      const message =
+        document
+          .getElementById("feedbackMessage")
+          .value;
 
 
-    feedbackList.push(feedback);
+      const feedback = {
+
+        id: Date.now(),
+
+        name: name,
+
+        rating: rating,
+
+        message: message,
+
+        date: new Date()
+          .toLocaleString()
+
+      };
 
 
-    localStorage.setItem(
-      "collegeCleanFeedback",
-      JSON.stringify(feedbackList)
-    );
+      const feedbackList =
+        JSON.parse(
+          localStorage.getItem(
+            "collegeCleanFeedback"
+          )
+        ) || [];
 
 
-    alert("💚 Thank you for your feedback!");
+      feedbackList.push(feedback);
 
 
-    feedbackForm.reset();
+      localStorage.setItem(
+        "collegeCleanFeedback",
+        JSON.stringify(feedbackList)
+      );
 
-  });
+
+      alert(
+        "💚 Thank you for your feedback!"
+      );
+
+
+      feedbackForm.reset();
+
+    }
+  );
 
 }
 
 
-
-
 /* ================================
-   FAQ ACCORDION
+   11. FAQ ACCORDION
    ================================ */
 
 const faqQuestions =
-  document.querySelectorAll(".faq-question");
+  document.querySelectorAll(
+    ".faq-question"
+  );
 
 
 faqQuestions.forEach((question) => {
 
-  question.addEventListener("click", () => {
+  question.addEventListener(
+    "click",
+    () => {
 
-    const answer =
-      question.nextElementSibling;
+      const answer =
+        question.nextElementSibling;
 
-    const icon =
-      question.querySelector("span");
+      const icon =
+        question.querySelector("span");
 
 
-    /* Close other answers */
+      /* Close other answers */
 
-    faqQuestions.forEach((otherQuestion) => {
+      faqQuestions.forEach(
+        (otherQuestion) => {
 
-      if (otherQuestion !== question) {
+          if (
+            otherQuestion !== question
+          ) {
 
-        const otherAnswer =
-          otherQuestion.nextElementSibling;
+            const otherAnswer =
+              otherQuestion.nextElementSibling;
 
-        const otherIcon =
-          otherQuestion.querySelector("span");
+            const otherIcon =
+              otherQuestion.querySelector(
+                "span"
+              );
 
-        otherAnswer.style.maxHeight = null;
 
-        otherAnswer.style.paddingTop = "0";
+            otherAnswer.style.maxHeight =
+              null;
 
-        otherIcon.style.transform = "rotate(0deg)";
-        otherIcon.textContent = "+";
+            otherAnswer.style.paddingTop =
+              "0";
+
+            otherIcon.style.transform =
+              "rotate(0deg)";
+
+            otherIcon.textContent =
+              "+";
+
+          }
+
+        }
+      );
+
+
+      /* Open / close selected answer */
+
+      if (!answer.style.maxHeight) {
+
+        answer.style.maxHeight =
+          answer.scrollHeight + "px";
+
+        answer.style.paddingTop =
+          "15px";
+
+        icon.style.transform =
+          "rotate(45deg)";
+
+        icon.textContent =
+          "+";
+
+      } else {
+
+        answer.style.maxHeight =
+          null;
+
+        answer.style.paddingTop =
+          "0";
+
+        icon.style.transform =
+          "rotate(0deg)";
+
       }
 
-    });
-
-
-    /* Open / close selected answer */
-
-    if (!answer.style.maxHeight) {
-
-      answer.style.maxHeight =
-        answer.scrollHeight + "px";
-
-      answer.style.paddingTop = "15px";
-
-      icon.style.transform = "rotate(45deg)";
-
-      icon.textContent = "+";
-
-    } else {
-
-      answer.style.maxHeight = null;
-
-      answer.style.paddingTop = "0";
-
-      icon.style.transform = "rotate(0deg)";
-
     }
-
-  });
+  );
 
 });
 
 
 /* ================================
-   DISPLAY RECENT REPORTS
+   12. DISPLAY REPORTS FROM SUPABASE
    ================================ */
 
 const reportsContainer =
-  document.getElementById("reportsContainer");
+  document.getElementById(
+    "reportsContainer"
+  );
 
 
 if (reportsContainer) {
 
-  const reports =
-    JSON.parse(
-      localStorage.getItem("collegeCleanReportsList")
-    ) || [];
+  loadReports();
+
+}
 
 
-  if (reports.length === 0) {
+async function loadReports() {
+
+  try {
+
+    /* Show loading message */
 
     reportsContainer.innerHTML = `
       <div class="no-reports">
-
-        <div class="no-reports-icon">
-          🌿
-        </div>
-
-        <h3>No Reports Yet</h3>
-
-        <p>
-          You haven't submitted any cleanliness reports yet.
-        </p>
-
-        <a href="report.html" class="main-btn">
-          REPORT AN ISSUE
-        </a>
-
+        <p>Loading reports...</p>
       </div>
     `;
 
-  } else {
 
-    /* Show newest report first */
+    /* Get reports from Supabase */
 
-    reports.reverse().forEach((report) => {
+    const {
+      data,
+      error
+    } =
+      await supabaseClient
+        .from("reports")
+        .select("*")
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        );
 
-      const card = document.createElement("div");
 
-      card.className = "report-card";
+    if (error) {
 
+      throw error;
+
+    }
+
+
+    /* No reports */
+
+    if (!data || data.length === 0) {
+
+      reportsContainer.innerHTML = `
+
+        <div class="no-reports">
+
+          <div class="no-reports-icon">
+            🌿
+          </div>
+
+          <h3>No Reports Yet</h3>
+
+          <p>
+            You haven't submitted any
+            cleanliness reports yet.
+          </p>
+
+          <a
+            href="report.html"
+            class="main-btn"
+          >
+            REPORT AN ISSUE
+          </a>
+
+        </div>
+
+      `;
+
+      return;
+
+    }
+
+
+    /* Clear container */
+
+    reportsContainer.innerHTML = "";
+
+
+    /* Display reports */
+
+    data.forEach((report) => {
+
+      const card =
+        document.createElement("div");
+
+      card.className =
+        "report-card";
+
+
+      /* Format date */
+
+      const date =
+        report.created_at
+          ? new Date(
+              report.created_at
+            ).toLocaleString()
+          : "Unknown";
+
+
+      /* Create card */
 
       card.innerHTML = `
 
         <div class="report-top">
 
           <div class="report-category">
-            ${getCategoryIcon(report.category)}
-            ${escapeHTML(report.category)}
+
+            ${getCategoryIcon(
+              report.category
+            )}
+
+            ${escapeHTML(
+              report.category
+            )}
+
           </div>
 
           <div class="report-status">
-            ${escapeHTML(report.status)}
+
+            Pending
+
           </div>
 
         </div>
@@ -486,13 +785,24 @@ if (reportsContainer) {
         <div class="report-info">
 
           <p>
+
             📍 <strong>Location:</strong>
-            ${escapeHTML(report.location)}
+
+            ${escapeHTML(
+              report.location || ""
+            )}
+
           </p>
 
+
           <p>
+
             👤 <strong>Reported by:</strong>
-            ${escapeHTML(report.name)}
+
+            ${escapeHTML(
+              report.reporter_name || ""
+            )}
+
           </p>
 
         </div>
@@ -500,24 +810,78 @@ if (reportsContainer) {
 
         <div class="report-description">
 
-          ${escapeHTML(report.description)}
+          ${escapeHTML(
+            report.description || ""
+          )}
 
         </div>
+
+
+        ${
+          report.photo_url
+            ? `
+              <div class="report-image">
+
+                <img
+                  src="${escapeHTML(
+                    report.photo_url
+                  )}"
+                  alt="Reported cleanliness issue"
+                  class="report-photo"
+                >
+
+              </div>
+            `
+            : ""
+        }
 
 
         <div class="report-date">
 
           🕒 Submitted:
-          ${escapeHTML(report.date)}
+
+          ${escapeHTML(date)}
 
         </div>
 
       `;
 
 
-      reportsContainer.appendChild(card);
+      reportsContainer.appendChild(
+        card
+      );
 
     });
+
+
+  } catch (error) {
+
+    console.error(
+      "Error loading reports:",
+      error
+    );
+
+
+    reportsContainer.innerHTML = `
+
+      <div class="no-reports">
+
+        <div class="no-reports-icon">
+          ⚠️
+        </div>
+
+        <h3>
+          Unable to Load Reports
+        </h3>
+
+        <p>
+          Please check your internet
+          connection and try again.
+        </p>
+
+      </div>
+
+    `;
 
   }
 
@@ -525,7 +889,7 @@ if (reportsContainer) {
 
 
 /* ================================
-   CATEGORY ICON
+   13. CATEGORY ICON
    ================================ */
 
 function getCategoryIcon(category) {
@@ -547,20 +911,24 @@ function getCategoryIcon(category) {
   };
 
 
-  return icons[category] || "📌";
+  return (
+    icons[category] || "📌"
+  );
 
 }
 
 
 /* ================================
-   BASIC HTML PROTECTION
+   14. BASIC HTML PROTECTION
    ================================ */
 
 function escapeHTML(text) {
 
-  const div = document.createElement("div");
+  const div =
+    document.createElement("div");
 
-  div.textContent = text;
+  div.textContent =
+    String(text);
 
   return div.innerHTML;
 
@@ -568,35 +936,40 @@ function escapeHTML(text) {
 
 
 /* ================================
-   CLEAR REPORT HISTORY
+   15. CLEAR REPORT HISTORY
    ================================ */
 
+/*
+   IMPORTANT:
+   The old localStorage delete code
+   has been removed.
+
+   We should NOT allow anonymous
+   visitors to delete all reports
+   from Supabase.
+
+   The existing button is therefore
+   disabled for now.
+*/
+
 const clearReports =
-  document.getElementById("clearReports");
+  document.getElementById(
+    "clearReports"
+  );
 
 
 if (clearReports) {
 
-  clearReports.addEventListener("click", () => {
+  clearReports.addEventListener(
+    "click",
+    () => {
 
-    const confirmClear =
-      confirm(
-        "Are you sure you want to clear all your report history?"
+      alert(
+        "Report history cannot be cleared from the public website."
       );
 
-
-    if (!confirmClear) {
-      return;
     }
-
-
-    localStorage.removeItem(
-      "collegeCleanReportsList"
-    );
-
-
-    location.reload();
-
-  });
+  );
 
 }
+```
