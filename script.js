@@ -1,4 +1,4 @@
-```javascript
+
 /* =================================
    COLLEGECLEAN - JAVASCRIPT
    ================================= */
@@ -14,7 +14,7 @@ const SUPABASE_URL = "https://hsogckpvahxfyphhakgv.supabase.co";
    IMPORTANT:
    Replace this with your Supabase
    Publishable/Anon Key.
-   
+
    DO NOT use the secret/service_role key.
 */
 const SUPABASE_KEY = "sb_publishable_UlWZ1m_ybYovovYjZGsbaw_XGO1zosU";
@@ -645,17 +645,11 @@ faqQuestions.forEach((question) => {
    ================================ */
 
 const reportsContainer =
-  document.getElementById(
-    "reportsContainer"
-  );
-
+  document.getElementById("reportsContainer");
 
 if (reportsContainer) {
-
   loadReports();
-
 }
-
 
 async function loadReports() {
 
@@ -663,225 +657,241 @@ async function loadReports() {
 
     /* Show loading message */
 
-    reportsContainer.innerHTML = `
-      <div class="no-reports">
-        <p>Loading reports...</p>
-      </div>
-    `;
+    reportsContainer.replaceChildren();
+
+    const loadingMessage = document.createElement("p");
+    loadingMessage.textContent = "Loading reports...";
+    reportsContainer.appendChild(loadingMessage);
+
+
+    /* Check Supabase connection */
+
+    if (!supabaseClient) {
+      throw new Error("Supabase client is not initialized.");
+    }
 
 
     /* Get reports from Supabase */
 
-    const {
-      data,
-      error
-    } =
-      await supabaseClient
-        .from("reports")
-        .select("*")
-        .order(
-          "created_at",
-          {
-            ascending: false
-          }
-        );
-
+    const { data, error } = await supabaseClient
+      .from("reports")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (error) {
-
       throw error;
-
     }
 
 
-    /* No reports */
+    /* Clear loading message */
+
+    reportsContainer.replaceChildren();
+
+
+    /* Show empty state */
 
     if (!data || data.length === 0) {
 
-      reportsContainer.innerHTML = `
+      const emptyBox = document.createElement("div");
+      emptyBox.className = "no-reports";
 
-        <div class="no-reports">
+      const emptyIcon = document.createElement("div");
+      emptyIcon.className = "no-reports-icon";
+      emptyIcon.textContent = "🌿";
 
-          <div class="no-reports-icon">
-            🌿
-          </div>
+      const heading = document.createElement("h3");
+      heading.textContent = "No Reports Yet";
 
-          <h3>No Reports Yet</h3>
+      const message = document.createElement("p");
+      message.textContent =
+        "You haven't submitted any cleanliness reports yet.";
 
-          <p>
-            You haven't submitted any
-            cleanliness reports yet.
-          </p>
+      const link = document.createElement("a");
+      link.href = "report.html";
+      link.className = "main-btn";
+      link.textContent = "REPORT AN ISSUE";
 
-          <a
-            href="report.html"
-            class="main-btn"
-          >
-            REPORT AN ISSUE
-          </a>
+      emptyBox.append(
+        emptyIcon,
+        heading,
+        message,
+        link
+      );
 
-        </div>
-
-      `;
-
+      reportsContainer.appendChild(emptyBox);
       return;
 
     }
-
-
-    /* Clear container */
-
-    reportsContainer.innerHTML = "";
 
 
     /* Display reports */
 
     data.forEach((report) => {
 
-      const card =
-        document.createElement("div");
-
-      card.className =
-        "report-card";
+      const card = document.createElement("div");
+      card.className = "report-card";
 
 
-      /* Format date */
+      /* Report header */
 
-      const date =
-        report.created_at
-          ? new Date(
-              report.created_at
-            ).toLocaleString()
-          : "Unknown";
+      const top = document.createElement("div");
+      top.className = "report-top";
 
+      const categoryBox = document.createElement("div");
+      categoryBox.className = "report-category";
 
-      /* Create card */
+      categoryBox.textContent =
+        getCategoryIcon(report.category) +
+        " " +
+        (report.category || "Other");
 
-      card.innerHTML = `
+      const statusBox = document.createElement("div");
+      statusBox.className = "report-status";
 
-        <div class="report-top">
+      statusBox.textContent =
+        String(report.status || "Pending")
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-          <div class="report-category">
-
-            ${getCategoryIcon(
-              report.category
-            )}
-
-            ${escapeHTML(
-              report.category
-            )}
-
-          </div>
-
-          <div class="report-status">
-
-            Pending
-
-          </div>
-
-        </div>
+      top.append(categoryBox, statusBox);
 
 
-        <div class="report-info">
+      /* Report information */
 
-          <p>
+      const info = document.createElement("div");
+      info.className = "report-info";
 
-            📍 <strong>Location:</strong>
+      const locationLine = document.createElement("p");
+      locationLine.textContent =
+        "📍 Location: " +
+        (report.location || "Not provided");
 
-            ${escapeHTML(
-              report.location || ""
-            )}
+      const reporterLine = document.createElement("p");
+      reporterLine.textContent =
+        "👤 Reported by: " +
+        (report.reporter_name || "Anonymous");
 
-          </p>
-
-
-          <p>
-
-            👤 <strong>Reported by:</strong>
-
-            ${escapeHTML(
-              report.reporter_name || ""
-            )}
-
-          </p>
-
-        </div>
+      info.append(locationLine, reporterLine);
 
 
-        <div class="report-description">
+      /* Report description */
 
-          ${escapeHTML(
-            report.description || ""
-          )}
+      const description = document.createElement("div");
+      description.className = "report-description";
 
-        </div>
+      description.textContent =
+        report.description || "No description provided.";
 
 
-        ${
-          report.photo_url
-            ? `
-              <div class="report-image">
+      /* Submitted date */
 
-                <img
-                  src="${escapeHTML(
-                    report.photo_url
-                  )}"
-                  alt="Reported cleanliness issue"
-                  class="report-photo"
-                >
+      const dateBox = document.createElement("div");
+      dateBox.className = "report-date";
 
-              </div>
-            `
-            : ""
+      let formattedDate = "Unknown";
+
+      if (report.created_at) {
+
+        const date = new Date(report.created_at);
+
+        if (!Number.isNaN(date.getTime())) {
+          formattedDate = date.toLocaleString();
         }
 
+      }
 
-        <div class="report-date">
-
-          🕒 Submitted:
-
-          ${escapeHTML(date)}
-
-        </div>
-
-      `;
+      dateBox.textContent =
+        "🕒 Submitted: " + formattedDate;
 
 
-      reportsContainer.appendChild(
-        card
-      );
+      /* Add report content */
+
+      card.append(top, info, description);
+
+
+      /* Display photo if available */
+
+      if (report.photo_url) {
+
+        try {
+
+          const photoURL = new URL(report.photo_url);
+
+          if (
+            photoURL.protocol === "https:" ||
+            photoURL.protocol === "http:"
+          ) {
+
+            const imageBox = document.createElement("div");
+            imageBox.className = "report-image";
+
+            const image = document.createElement("img");
+            image.src = photoURL.href;
+            image.alt = "Reported cleanliness issue";
+            image.className = "report-photo";
+            image.loading = "lazy";
+
+            image.onerror = () => {
+              imageBox.remove();
+            };
+
+            imageBox.appendChild(image);
+            card.appendChild(imageBox);
+
+          }
+
+        } catch (error) {
+
+          console.warn("Invalid report photo URL:", error);
+
+        }
+
+      }
+
+
+      /* Add date and card to page */
+
+      card.appendChild(dateBox);
+      reportsContainer.appendChild(card);
 
     });
 
 
   } catch (error) {
 
-    console.error(
-      "Error loading reports:",
-      error
+    console.error("Error loading reports:", error);
+
+    reportsContainer.replaceChildren();
+
+    const errorBox = document.createElement("div");
+    errorBox.className = "no-reports";
+
+    const errorIcon = document.createElement("div");
+    errorIcon.className = "no-reports-icon";
+    errorIcon.textContent = "⚠️";
+
+    const heading = document.createElement("h3");
+    heading.textContent = "Unable to Load Reports";
+
+    const message = document.createElement("p");
+    message.textContent =
+      "Please check your connection and try again.";
+
+    const retryButton = document.createElement("button");
+    retryButton.type = "button";
+    retryButton.className = "main-btn";
+    retryButton.textContent = "TRY AGAIN";
+
+    retryButton.addEventListener("click", loadReports);
+
+    errorBox.append(
+      errorIcon,
+      heading,
+      message,
+      retryButton
     );
 
-
-    reportsContainer.innerHTML = `
-
-      <div class="no-reports">
-
-        <div class="no-reports-icon">
-          ⚠️
-        </div>
-
-        <h3>
-          Unable to Load Reports
-        </h3>
-
-        <p>
-          Please check your internet
-          connection and try again.
-        </p>
-
-      </div>
-
-    `;
+    reportsContainer.appendChild(errorBox);
 
   }
 
@@ -910,10 +920,7 @@ function getCategoryIcon(category) {
 
   };
 
-
-  return (
-    icons[category] || "📌"
-  );
+  return icons[category] || "📌";
 
 }
 
@@ -924,11 +931,9 @@ function getCategoryIcon(category) {
 
 function escapeHTML(text) {
 
-  const div =
-    document.createElement("div");
+  const div = document.createElement("div");
 
-  div.textContent =
-    String(text);
+  div.textContent = String(text);
 
   return div.innerHTML;
 
@@ -953,16 +958,16 @@ function escapeHTML(text) {
 */
 
 const clearReports =
-  document.getElementById(
-    "clearReports"
-  );
+  document.getElementById("clearReports");
 
 
 if (clearReports) {
 
   clearReports.addEventListener(
     "click",
-    () => {
+    (event) => {
+
+      event.preventDefault();
 
       alert(
         "Report history cannot be cleared from the public website."
@@ -972,4 +977,3 @@ if (clearReports) {
   );
 
 }
-```
